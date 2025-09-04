@@ -64,7 +64,7 @@ const LoanHistory = () => {
   const handleEvaluate = async (loanId: string) => {
     try {
       setEvaluatingId(loanId);
-
+  
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/underwriting/${loanId}/underwrite`,
         {
@@ -75,22 +75,29 @@ const LoanHistory = () => {
           },
         }
       );
-
-
+  
       const data = await response.json();
-
+  
       if (!response.ok) {
         throw new Error(data?.message || "Failed to evaluate loan");
       }
-
+  
+      // ✅ Save underwriting results
       setUnderwritingResults((prev) => ({
         ...prev,
         [loanId]: data,
       }));
-
+  
+      // ✅ Update the loan's status in the `loans` state
+      setLoans((prevLoans) =>
+        prevLoans.map((loan) =>
+          loan._id === loanId ? { ...loan, status: data.decision } : loan
+        )
+      );
+  
       toast({
         title: "Evaluation Complete",
-        description: "Underwriting analysis has been completed",
+        description: `Loan has been ${data.decision.toLowerCase()}`,
       });
     } catch (error: any) {
       toast({
@@ -102,6 +109,7 @@ const LoanHistory = () => {
       setEvaluatingId(null);
     }
   };
+  
 
   const getStatusIcon = (status: string) => {
     switch (status) {
