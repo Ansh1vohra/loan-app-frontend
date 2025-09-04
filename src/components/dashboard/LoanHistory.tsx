@@ -6,6 +6,13 @@ import { Loader2, CreditCard, Eye, AlertCircle, CheckCircle, Clock } from "lucid
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
+interface Underwriting {
+  evaluatedAt?: string;
+  score?: number;
+  decision?: "Approved" | "Rejected" | "Pending";
+  reasons?: string[];
+}
+
 interface Loan {
   _id: string;
   loanType: string;
@@ -14,7 +21,9 @@ interface Loan {
   createdAt: string;
   purpose: string;
   amount: number;
+  underwriting?: Underwriting;   // ✅ add this
 }
+
 
 interface UnderwritingResult {
   decision: string;
@@ -64,7 +73,7 @@ const LoanHistory = () => {
   const handleEvaluate = async (loanId: string) => {
     try {
       setEvaluatingId(loanId);
-  
+
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/underwriting/${loanId}/underwrite`,
         {
@@ -75,26 +84,28 @@ const LoanHistory = () => {
           },
         }
       );
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(data?.message || "Failed to evaluate loan");
       }
-  
+
       // ✅ Save underwriting results
       setUnderwritingResults((prev) => ({
         ...prev,
         [loanId]: data,
       }));
-  
+
       // ✅ Update the loan's status in the `loans` state
       setLoans((prevLoans) =>
         prevLoans.map((loan) =>
-          loan._id === loanId ? { ...loan, status: data.decision } : loan
+          loan._id === loanId
+            ? { ...loan, status: data.decision, underwriting: data.underwriting }
+            : loan
         )
       );
-  
+      
       toast({
         title: "Evaluation Complete",
         description: `Loan has been ${data.decision.toLowerCase()}`,
@@ -109,7 +120,7 @@ const LoanHistory = () => {
       setEvaluatingId(null);
     }
   };
-  
+
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -193,32 +204,35 @@ const LoanHistory = () => {
                   </div>
                 </div>
 
-                {underwritingResults[loan._id] && (
+                {loan.underwriting && (
                   <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                     <h4 className="font-semibold mb-2">Underwriting Results</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Decision:</span>
-                        <span className="text-sm font-medium">{underwritingResults[loan._id].decision}</span>
+                        <span className="text-sm font-medium">{loan.underwriting.decision}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">Score:</span>
-                        <span className="text-sm font-medium">{underwritingResults[loan._id].score}/100</span>
+                        <span className="text-sm font-medium">{loan.underwriting.score}/100</span>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Reasons:</p>
-                        <ul className="text-sm space-y-1">
-                          {underwritingResults[loan._id].reasons.map((reason, index) => (
-                            <li key={index} className="flex items-start gap-1">
-                              <span className="text-primary">•</span>
-                              {reason}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {loan.underwriting.reasons?.length > 0 && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Reasons:</p>
+                          <ul className="text-sm space-y-1">
+                            {loan.underwriting.reasons.map((reason, index) => (
+                              <li key={index} className="flex items-start gap-1">
+                                <span className="text-primary">•</span>
+                                {reason}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
+
 
                 {loan.status === "Applied" && !underwritingResults[loan._id] && (
                   <Button
